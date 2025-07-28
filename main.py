@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
@@ -10,11 +9,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 from aiogram.utils import executor
-
-# Ichki modullar
-from keep_alive import keep_alive  # agar siz Render yoki Replitda ishlatsangiz
-
-# Database funksiyalari
+from keep_alive import keep_alive
 from database import (
     init_db,
     add_user,
@@ -36,7 +31,7 @@ keep_alive()
 
 API_TOKEN = os.getenv("API_TOKEN")
 CHANNELS = os.getenv("CHANNEL_USERNAMES").split(",")
-MAIN_CHANNEL = os.getenv("MAIN_CHANNEL")
+MAIN_CHANNELS = os.getenv("MAIN_CHANNELS").split(",")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 
 bot = Bot(token=API_TOKEN)
@@ -328,12 +323,14 @@ async def add_kino_handler(message: types.Message, state: FSMContext):
         )
 
         try:
-            await bot.copy_message(
-                chat_id=MAIN_CHANNEL,
-                from_chat_id=server_channel,
-                message_id=reklama_id,
+            for ch in MAIN_CHANNELS:
+                await bot.copy_message(
+                    chat_id=ch,
+                    from_chat_id=server_channel,
+                        message_id=reklama_id,
                 reply_markup=download_btn
-            )
+        ) 
+
             successful += 1
         except:
             failed += 1
