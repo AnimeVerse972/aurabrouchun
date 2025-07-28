@@ -74,6 +74,11 @@ class UserStates(StatesGroup):
 class SearchStates(StatesGroup):
     waiting_for_anime_name = State()
 
+class PostStates(StatesGroup):
+    waiting_for_image = State()
+    waiting_for_title = State()
+    waiting_for_link = State()
+
 # === OBUNA TEKSHIRISH ===
 async def is_user_subscribed(user_id):
     for channel in CHANNELS:
@@ -106,7 +111,7 @@ async def start_handler(message: types.Message):
         kb.add("➕ Anime qo‘shish")
         kb.add("📊 Statistika", "📈 Kod statistikasi")
         kb.add("❌ Kodni o‘chirish", "📄 Kodlar ro‘yxati")
-        kb.add("✏️ Kodni tahrirlash")
+        kb.add("✏️ Kodni tahrirlash", "📤 Post yasash")
         await message.answer("👮‍♂️ Admin panel:", reply_markup=kb)
     else:
         kb = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -336,6 +341,47 @@ async def add_kino_handler(message: types.Message, state: FSMContext):
     await message.answer(f"✅ Yangi kodlar qo‘shildi:\n\n✅ Muvaffaqiyatli: {successful}\n❌ Xatolik: {failed}")
     await state.finish()
 
+
+
+@dp.message_handler(lambda m: m.text == "📤 Post qilish")
+async def start_post_process(message: types.Message):
+    if message.from_user.id in ADMINS:
+        await PostStates.waiting_for_image.set()
+        await message.answer("🖼 Iltimos, post uchun rasm yuboring.")
+@dp.message_handler(content_types=types.ContentType.PHOTO, state=PostStates.waiting_for_image)
+async def get_post_image(message: types.Message, state: FSMContext):
+    photo = message.photo[-1].file_id
+    await state.update_data(photo=photo)
+    await PostStates.waiting_for_title.set()
+    await message.answer("📌 Endi rasm ostiga yoziladigan nomni yuboring.")
+@dp.message_handler(state=PostStates.waiting_for_title)
+async def get_post_title(message: types.Message, state: FSMContext):
+    await state.update_data(title=message.text.strip())
+    await PostStates.waiting_for_link.set()
+    await message.answer("🔗 Yuklab olish uchun havolani yuboring.")
+@dp.message_handler(state=PostStates.waiting_for_link)
+async def get_post_link(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    photo = data.get("photo")
+    title = data.get("title")
+    link = message.text.strip()
+
+    button = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("📥 Yuklab olish", url=link)
+    )
+
+    try:
+        await bot.send_photo(
+            chat_id=message.chat.id,
+            photo=photo,
+            caption=title,
+            reply_markup=button
+        )
+        await message.answer("✅ Post muvaffaqiyatli yuborildi.")
+    except Exception as e:
+        await message.answer(f"❌ Xatolik yuz berdi: {e}")
+    finally:
+        await state.finish()
 
 # === Kodlar ro‘yxati
 @dp.message_handler(lambda m: m.text == "📄 Kodlar ro‘yxati")
